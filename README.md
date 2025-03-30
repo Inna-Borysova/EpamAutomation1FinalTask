@@ -30,11 +30,9 @@ The automated tests validate the login functionality of the [SauceDemo](https://
 
 ### Run Tests in Different Browsers
 
-You can specify which browser to use for the test execution using the `TestSettings.runsettings` file. The supported browsers are:
+Tests are running in different browsers. The supported browsers are:
 
 - `chrome`
 - `firefox`
 - `edge`
-
-The default browser is Chrome if no specific browser is provided.
 

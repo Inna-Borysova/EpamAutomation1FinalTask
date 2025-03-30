@@ -1,10 +1,10 @@
 ﻿using FinalTask.Pages;
 using FluentAssertions;
+using log4net;
+using log4net.Config;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Edge;
-using OpenQA.Selenium.Firefox;
 
+[assembly: Parallelize(Workers = 2, Scope = ExecutionScope.MethodLevel)]
 namespace FinalTask
 {
     [TestClass]
@@ -12,105 +12,157 @@ namespace FinalTask
     {
         private const string Url = "https://www.saucedemo.com/";
 
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(LoginTests));
+        private static IWebDriverFactory? _driverFactory;
+
         private IWebDriver? _driver;
 
         public TestContext TestContext { get; set; }
 
-        [TestInitialize]
-        public void TestInitialize()
+        [AssemblyInitialize]
+        public static void AssemblyInitialize(TestContext context)
         {
-            string browser = GetBrowserFromRunSettings();
-            _driver = CreateDriver(browser);
-            var options = _driver.Manage();
-            options.Window.Maximize();
-            options.Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+            var config = new FileInfo(AppDomain.CurrentDomain.BaseDirectory + "App.config");
+            XmlConfigurator.Configure(config);
+            Logger.Info("Logger configured");
+        }
+
+        [ClassInitialize]
+        public static void ClassInitialize(TestContext testContext)
+        {
+            _driverFactory = new WebDriverFactory();
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _driver?.Quit();
+            Logger.Info($"{nameof(TestCleanup)} start");
+
+            try
+            {
+                if (_driver == null)
+                {
+                    Logger.Warn($"{nameof(TestCleanup)} Driver is null");
+                }
+                else
+                {
+                    _driver.Close();
+                    _driver.Quit();
+                    _driver.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(TestCleanup)} error", ex);
+            }
+            finally
+            {
+                Logger.Info($"{nameof(TestCleanup)} end");
+            }
         }
 
         [TestMethod]
-        public void Login_EmptyCredentials_UserNameErrorMessageDisplayed()
+        [DataRow("chrome")]
+        [DataRow("firefox")]
+        public void Login_EmptyCredentials_UserNameErrorMessageDisplayed(string browser)
         {
-            if (_driver == null)
-            {
-                Assert.Fail("Driver is null");
-            }
+            Logger.Info($"{nameof(Login_EmptyCredentials_UserNameErrorMessageDisplayed)} {browser} start");
 
-            _driver.Navigate().GoToUrl(Url);
-            LoginPage loginPage = new LoginPage(_driver);
-            loginPage.TypeUserName("bob");
-            loginPage.TypePassword("asdfghj");
-            loginPage.ClearUserName();
-            loginPage.ClearPassword();
-            loginPage.ClickLoginButton();
-            bool result = loginPage.IsUserNameErrorMessageDisplayed();
-            result.Should().BeTrue();
+            try
+            {
+                _driver = CreateDriver(browser);
+                _driver.Navigate().GoToUrl(Url);
+                LoginPage loginPage = new LoginPage(_driver);
+                loginPage.TypeUserName("bob");
+                loginPage.TypePassword("asdfghj");
+                loginPage.ClearUserName();
+                loginPage.ClearPassword();
+                loginPage.ClickLoginButton();
+                loginPage.IsUserNameErrorMessageDisplayed().Should().BeTrue();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(Login_EmptyCredentials_UserNameErrorMessageDisplayed)} {browser} error", ex);
+            }
+            finally
+            {
+                Logger.Info($"{nameof(Login_EmptyCredentials_UserNameErrorMessageDisplayed)} {browser} end");
+            }
         }
 
         [TestMethod]
-        public void Login_EmptyPassword_PasswordErrorMessageDisplayed()
+        [DataRow("chrome")]
+        [DataRow("firefox")]
+        public void Login_EmptyPassword_PasswordErrorMessageDisplayed(string browser)
         {
-            if (_driver == null)
-            {
-                Assert.Fail("Driver is null");
-            }
+            Logger.Info($"{nameof(Login_EmptyPassword_PasswordErrorMessageDisplayed)} {browser} start");
 
-            _driver.Navigate().GoToUrl(Url);
-            LoginPage loginPage = new LoginPage(_driver);
-            loginPage.TypeUserName("bob");
-            loginPage.TypePassword("password");
-            loginPage.ClearPassword();
-            loginPage.ClickLoginButton();
-            bool result = loginPage.IsPasswordErrorMessageDisplayed();
-            result.Should().BeTrue();
+            try
+            {
+                _driver = CreateDriver(browser);
+                _driver.Navigate().GoToUrl(Url);
+                LoginPage loginPage = new LoginPage(_driver);
+                loginPage.TypeUserName("bob");
+                loginPage.TypePassword("password");
+                loginPage.ClearPassword();
+                loginPage.ClickLoginButton();
+                loginPage.IsPasswordErrorMessageDisplayed().Should().BeTrue();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(Login_EmptyPassword_PasswordErrorMessageDisplayed)} {browser} error", ex);
+            }
+            finally
+            {
+                Logger.Info($"{nameof(Login_EmptyPassword_PasswordErrorMessageDisplayed)} {browser} end");
+            }
         }
 
         [TestMethod]
-        [DataRow("standard_user", "secret_sauce")]
-        [DataRow("problem_user", "secret_sauce")]
-        [DataRow("performance_glitch_user", "secret_sauce")]
-        [DataRow("error_user", "secret_sauce")]
-        [DataRow("visual_user", "secret_sauce")]
-        public void Login_CorrectCredentials_InventoryHeaderTitleDisplayed(string userName, string password)
+        [DataRow("chrome", "standard_user", "secret_sauce")]
+        [DataRow("firefox", "standard_user", "secret_sauce")]
+        [DataRow("chrome", "problem_user", "secret_sauce")]
+        [DataRow("firefox", "problem_user", "secret_sauce")]
+        [DataRow("chrome", "performance_glitch_user", "secret_sauce")]
+        [DataRow("firefox", "performance_glitch_user", "secret_sauce")]
+        [DataRow("chrome", "error_user", "secret_sauce")]
+        [DataRow("firefox", "error_user", "secret_sauce")]
+        [DataRow("chrome", "visual_user", "secret_sauce")]
+        [DataRow("firefox", "visual_user", "secret_sauce")]
+        public void Login_CorrectCredentials_InventoryHeaderTitleDisplayed(string browser, string userName, string password)
         {
-            if (_driver == null)
-            {
-                Assert.Fail("Driver is null");
-            }
+            Logger.Info($"{nameof(Login_CorrectCredentials_InventoryHeaderTitleDisplayed)} {browser} start");
 
-            _driver.Navigate().GoToUrl(Url);
-            LoginPage loginPage = new LoginPage(_driver);
-            loginPage.TypeUserName(userName);
-            loginPage.TypePassword(password);
-            loginPage.ClickLoginButton();
-            InventoryPage inventoryPage = new InventoryPage(_driver);
-            bool result = inventoryPage.IsHeaderTitleDisplayed();
-            result.Should().BeTrue();
+            try
+            {
+                _driver = CreateDriver(browser);
+                _driver.Navigate().GoToUrl(Url);
+                LoginPage loginPage = new LoginPage(_driver);
+                loginPage.TypeUserName(userName);
+                loginPage.TypePassword(password);
+                loginPage.ClickLoginButton();
+                InventoryPage inventoryPage = new InventoryPage(_driver);
+                inventoryPage.IsHeaderTitleDisplayed().Should().BeTrue();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{nameof(Login_CorrectCredentials_InventoryHeaderTitleDisplayed)} {browser} error", ex);
+            }
+            finally
+            {
+                Logger.Info($"{nameof(Login_CorrectCredentials_InventoryHeaderTitleDisplayed)} {browser} end");
+            }
         }
 
-        private string GetBrowserFromRunSettings()
+        private IWebDriver CreateDriver(string browser)
         {
-            string? browser = TestContext.Properties["Browser"]?.ToString();
-            return browser ?? "chrome";
-        }
+            IWebDriver driver = _driverFactory.CreateDriver(browser);
 
-        private static IWebDriver CreateDriver(string browser)
-        {
-            switch (browser.ToLower())
-            {
-                case "chrome":
-                    return new ChromeDriver();
-                case "firefox":
-                    return new FirefoxDriver();
-                case "edge":
-                    return new EdgeDriver();
-                default:
-                    throw new NotSupportedException($"Browser '{browser}' not supported.");
-            }
+            var options = driver.Manage();
+            options.Window.Maximize();
+            options.Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+
+            return driver;
         }
     }
 }

@@ -6,7 +6,7 @@ namespace FinalTask.Pages
     {
         private const string HeaderTitleText = "Swag Labs";
 
-        private readonly By _headerTitle = By.XPath("//*[@id='header_container']/div[@class='primary_header' and @data-test='primary-header']//div[@class='header_label']//div[@class='app_logo']");
+        private readonly By _headerTitle = By.CssSelector("div#header_container div.app_logo");
 
         public InventoryPage(IWebDriver driver) : base(driver)
         {

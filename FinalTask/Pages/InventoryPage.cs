@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using log4net;
+using OpenQA.Selenium;
 
 namespace FinalTask.Pages
 {
@@ -8,7 +9,7 @@ namespace FinalTask.Pages
 
         private readonly By _headerTitle = By.CssSelector("div#header_container div.app_logo");
 
-        public InventoryPage(IWebDriver driver) : base(driver)
+        public InventoryPage(IWebDriver driver, IWaitStrategy waitStrategy, ILog logger) : base(driver, waitStrategy, logger)
         {
         }
 

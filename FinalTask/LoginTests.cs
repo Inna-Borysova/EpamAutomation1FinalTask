@@ -4,7 +4,7 @@ using log4net;
 using log4net.Config;
 using OpenQA.Selenium;
 
-[assembly: Parallelize(Workers = 2, Scope = ExecutionScope.MethodLevel)]
+[assembly: Parallelize(Workers = 4, Scope = ExecutionScope.MethodLevel)]
 namespace FinalTask
 {
     [TestClass]
@@ -13,24 +13,22 @@ namespace FinalTask
         private const string Url = "https://www.saucedemo.com/";
 
         private static readonly ILog Logger = LogManager.GetLogger(typeof(LoginTests));
-        private static IWebDriverFactory? _driverFactory;
 
         private IWebDriver? _driver;
-
-        public TestContext TestContext { get; set; }
+        private IWaitStrategy? _waitStrategy;
 
         [AssemblyInitialize]
-        public static void AssemblyInitialize(TestContext context)
+        public static void AssemblyInitialize(TestContext _)
         {
             var config = new FileInfo(AppDomain.CurrentDomain.BaseDirectory + "App.config");
             XmlConfigurator.Configure(config);
             Logger.Info("Logger configured");
         }
 
-        [ClassInitialize]
-        public static void ClassInitialize(TestContext testContext)
+        [TestInitialize]
+        public void TestInitialize()
         {
-            _driverFactory = new WebDriverFactory();
+            _waitStrategy = new ExplicitWaitStrategy(TimeSpan.FromSeconds(1));
         }
 
         [TestCleanup]
@@ -72,7 +70,7 @@ namespace FinalTask
             {
                 _driver = CreateDriver(browser);
                 _driver.Navigate().GoToUrl(Url);
-                LoginPage loginPage = new LoginPage(_driver);
+                LoginPage loginPage = new LoginPage(_driver, _waitStrategy!, Logger);
                 loginPage.TypeUserName("bob");
                 loginPage.TypePassword("asdfghj");
                 loginPage.ClearUserName();
@@ -83,6 +81,8 @@ namespace FinalTask
             catch (Exception ex)
             {
                 Logger.Error($"{nameof(Login_EmptyCredentials_UserNameErrorMessageDisplayed)} {browser} error", ex);
+                TakeScreenshot(nameof(Login_EmptyCredentials_UserNameErrorMessageDisplayed));
+                throw;
             }
             finally
             {
@@ -101,7 +101,7 @@ namespace FinalTask
             {
                 _driver = CreateDriver(browser);
                 _driver.Navigate().GoToUrl(Url);
-                LoginPage loginPage = new LoginPage(_driver);
+                LoginPage loginPage = new LoginPage(_driver, _waitStrategy!, Logger);
                 loginPage.TypeUserName("bob");
                 loginPage.TypePassword("password");
                 loginPage.ClearPassword();
@@ -111,6 +111,8 @@ namespace FinalTask
             catch (Exception ex)
             {
                 Logger.Error($"{nameof(Login_EmptyPassword_PasswordErrorMessageDisplayed)} {browser} error", ex);
+                TakeScreenshot(nameof(Login_EmptyPassword_PasswordErrorMessageDisplayed));
+                throw;
             }
             finally
             {
@@ -137,16 +139,18 @@ namespace FinalTask
             {
                 _driver = CreateDriver(browser);
                 _driver.Navigate().GoToUrl(Url);
-                LoginPage loginPage = new LoginPage(_driver);
+                LoginPage loginPage = new LoginPage(_driver, _waitStrategy!, Logger);
                 loginPage.TypeUserName(userName);
                 loginPage.TypePassword(password);
                 loginPage.ClickLoginButton();
-                InventoryPage inventoryPage = new InventoryPage(_driver);
+                InventoryPage inventoryPage = new InventoryPage(_driver, _waitStrategy!, Logger);
                 inventoryPage.IsHeaderTitleDisplayed().Should().BeTrue();
             }
             catch (Exception ex)
             {
                 Logger.Error($"{nameof(Login_CorrectCredentials_InventoryHeaderTitleDisplayed)} {browser} error", ex);
+                TakeScreenshot(nameof(Login_CorrectCredentials_InventoryHeaderTitleDisplayed));
+                throw;
             }
             finally
             {
@@ -154,15 +158,36 @@ namespace FinalTask
             }
         }
 
-        private IWebDriver CreateDriver(string browser)
+        private static IWebDriver CreateDriver(string browser)
         {
-            IWebDriver driver = _driverFactory.CreateDriver(browser);
-
-            var options = driver.Manage();
-            options.Window.Maximize();
-            options.Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+            IWebDriver driver =
+                new WebDriverBuilder()
+                    .WithBrowser(browser)
+                    .WithImplicitWait(TimeSpan.FromSeconds(10))
+                    .WithMaximize(true)
+                    .Build();
 
             return driver;
+        }
+
+        private void TakeScreenshot(string testName)
+        {
+            try
+            {
+                if (_driver == null) return;
+
+                var screenshot = ((ITakesScreenshot)_driver).GetScreenshot();
+
+                var fileName = $"{testName}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+
+                screenshot.SaveAsFile(fileName);
+
+                Logger.Info($"Screenshot saved: {fileName}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to take screenshot", ex);
+            }
         }
     }
 }
